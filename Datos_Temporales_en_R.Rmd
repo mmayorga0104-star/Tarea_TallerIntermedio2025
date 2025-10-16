@@ -1,0 +1,202 @@
+---
+title: "Datos temporales en R"
+author: "Héctor Villalobos"
+format: 
+  gfm:
+    toc: false
+editor: visual
+---
+
+## Manipulación de datos temporales: temperatura potencial del mar diaria
+
+Para ilustrar la manipulación de datos temporales utilizaremos información del producto *Global Ocean Physics Reanalysis* (<https://doi.org/10.48670/moi-00021>) de Copernicus (<https://marine.copernicus.eu/>).
+
+```{r}
+# cargar paquete devtools
+#library(devtools)
+
+# instalar 'satin' desde github
+#install_github("hvillalo/satin")
+
+# cargar paquete satin
+library(satin)
+```
+
+Importar el archivo netCDF anterior con la función `read.cmems()`.
+
+```{r}
+thetao <- read.cmems("cmems_mod_glo_phy_my_0.083deg_P1D-m_1728505215428.nc")
+```
+
+Ahora inspeccionamos el archivo importado, comenzando por la clase del objeto `"thetao"`.
+
+```{r}
+class(thetao)
+```
+
+y su contenido...
+
+```{r}
+thetao
+```
+
+Podemos ver que tenemos datos diarios de temperatura en °C, con una resolución espacial de 9.2 km. En total son 731 días , del 2019-01-01 al 2020-12-31 y a 2 niveles de profundidad diferentes, 0.49 y 1.54 m. En este objeto de clase S4 podemos extraer sus diferentes componentes ("slots") usando "\@":
+
+```{r}
+head(thetao@period$tmStart); tail(thetao@period$tmStart)
+```
+
+Haremos un mapa del primer día presente en los datos para elegir un punto y extraer los valores de temperatura en el nivel más superficial
+
+```{r}
+plot(thetao)
+```
+
+Tomemos por ejemplo un pixel a los 26° de lat N y 110° de lon W
+
+```{r}
+pt <- data.frame(x = -110, y = 26)
+sst <- extractPts(thetao, points = pt)
+dim(sst)
+```
+
+En `sst` están los valores de temperatura potencial para el punto seleccionado, en los 731 días y para los 2 niveles de profundidad 731 $\times$ 2 = 1462. Las primeras seis columnas adicionales en `sst` contienen el id del punto o puntos elegidos, las coordenadas de latitud-longitud elegidas, las coordenadas del pixel más cercano donde hay datos y la distancia entre el punto elegido y el dato devuelto, solo como un control
+
+```{r}
+sst[ , 1:10]
+```
+
+Para representar la serie de tiempo podemos re-arreglar nuestros datos extraídos mediante la siguiente función
+
+```{r}
+# función para darle formato a datos extraídos con extractPts()
+formatXTP <- function(pts, plot.error = FALSE){
+  error <- pts$d
+  if (plot.error == TRUE){
+    x11(); hist(error)
+  }
+  npts <- nrow(pts)
+  ncols <- ncol(pts)
+  att <- attributes(pts)
+  ans <- data.frame(fecha = att$attribs$period$tmStart, t(pts[, 7:ncols]))
+  rownames(ans) <- NULL
+  names(ans)[2:(npts+1)] <- paste("loc", 1:npts, sep = ".")
+  ans
+}
+
+tsm <- formatXTP(sst)
+tsm <- tsm[1:731, ]
+head(tsm)
+```
+
+Ahora podemos graficar la serie de tiempo de temperatura potencial del mar a 0.49 m de profundidad en el punto anterior usando la función `plot()`.
+
+```{r}
+plot(tsm, type = "o", pch = 16, col = rgb(1, 0, 0, 0.2))
+```
+
+Esta serie se puede suavizar con promedios móviles centrados mediante la función `cma()` del paquete **smooth** que tiene la ventaja de no producir valores faltantes (ver ayuda con `?sma`)
+
+```{r}
+library(smooth)
+sm <- cma(tsm$loc.1, order = 30)
+tsm$sm <- sm$fitted
+
+plot(tsm$fecha, tsm$loc.1, type = "b", pch = 16, col = rgb(1, 0, 0, 0.2),
+     xlab = "día", ylab = "temperatura potencial del mar (°C)")
+lines(tsm$fecha, tsm$sm, lwd = 2)
+```
+
+Podemos simplificar aún más esta información, por ejemplo calculando los promedios mensuales. Para ello primero extraemos el mes y el año de la fecha con funciones del paquete **lubridate**:
+
+```{r}
+library(lubridate)
+tsm$mes <- month(tsm$fecha)
+tsm$año <- year(tsm$fecha)
+head(tsm)
+```
+
+A continuación la tabla se agrega calculando los promedios deseados
+
+```{r}
+tsm.mens <- aggregate(tsm$loc.1, by = list(mes = tsm$mes, año = tsm$año), mean)
+tsm.mens
+```
+
+El gráfico correspondiente requiere definir un vector con la posición donde queremos poner cada promedio, por ejemplo el día 15 de cada mes
+
+```{r}
+mes <- as.Date(paste(tsm.mens$año, tsm.mens$mes, 15, sep = "-"))
+plot(mes, tsm.mens$x, xlab = "mes", ylab = "temperatura (°C)", type = "b")
+```
+
+Si quisiéramos personalizar el espaciamiento de las marcas de graduación en x, por ejemplo cada mes, sin perder de vista que tenemos dos años de datos, podríamos usar doble eje x:
+
+```{r}
+rng <- range(mes)
+xmes <- seq.Date(rng[1], rng[2], by = "month")
+plot(as.Date(paste(tsm.mens$año, tsm.mens$mes, 15, sep = "-")), tsm.mens$x,
+     xlab = "", ylab = "temperatura (°C)", type = "b", xaxt = "n")
+axis.Date(side = 1, at = mes, labels = format(xmes, format = "%b"))
+axis.Date(side = 1, at = xmes[c(1, 13)], labels = c(2019, 2020), line = 2, lwd = 0)
+```
+
+Otros resúmenes de la información son posibles, como los promedios mensuales (sin importar el año):
+
+```{r}
+# promedio mensual
+tapply(tsm$loc.1, tsm$mes, mean)
+```
+
+o los promedios anuales:
+
+```{r}
+# promedio anual
+tapply(tsm$loc.1, tsm$año, mean)
+```
+
+Por último, regresando a los datos diarios importados antes, podríamos obtener promedios (u otros resúmenes, e.g. desviación estándar) de cada pixel en la zona de estudio gracias a la información de las fechas en dicho objeto:
+
+```{r}
+# Promedio temperaturas de cada año
+sst.anual <- satinMean(thetao, by = "%Y")
+sst.anual
+```
+
+quedando las figuras
+
+```{r}
+
+# 2019
+plot(sst.anual, period = 1, zlim = c(21.6, 26.9))
+
+# 2020
+plot(sst.anual, period = 2, zlim = c(21.6, 26.9))
+```
+
+También podríamos calcular anomalías mensuales, aunque en este caso solo tenemos dos años para calcular el año promedio
+
+```{r}
+# año promedio, por lo regular se recomiendo un promedio de 30 años
+yrPromedio <-  satinMean(thetao, by = "%m")
+# promedios mensuales
+sstMensual <-  satinMean(thetao, by = "%Y-%m")
+
+# anomalías mensuales
+anom <- anomaly(sstMensual, yrPromedio)
+```
+
+Mapa de anomalías en enero
+
+```{r}
+data(dmap)
+plot(anom, period = 1, map = dmap, map.col = "grey90", map.outline = "grey", 
+     zlim = c(-1, 1), scheme = c("blue", "white", "red"), col.sep = 0.1)
+```
+
+Y en agosto...
+
+```{r}
+plot(anom, period = 8, map = dmap, map.col = "grey90", map.outline = "grey", 
+     zlim = c(-1, 1), scheme = c("blue", "white", "red"), col.sep = 0.1)
+```

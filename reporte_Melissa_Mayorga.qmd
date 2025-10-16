@@ -1,0 +1,80 @@
+---
+title: "tarea"
+author: "melissa_mayorga"
+format: html
+editor: visual
+---
+
+## Reporte de curso AECID
+
+### Ejercicio datos temporales
+
+ESCRIBIR DESCRIPCIÓN
+
+SE EMPLEARON DATOS DE COPERNICUS. SE IMPORTARON CON EL PAQUETE **SATIN**
+
+```{r}
+library(satin) #cargar paquete
+sst <- read.cmems("cmems_mod_glo_phy_my_0.083deg_P1D-m_1728505215428.nc")
+```
+
+Una vez IMPORTADO SE INSPECCIONÓ
+
+```{r}
+sst
+```
+
+Se trata de datos diarios de temperatura (temperatura potencial) a dos profundidades correspondientes a dos años (2019-2020).
+
+hacer un mapa del primer día.
+
+```{r}
+data(dmap)
+plot(sst, map = dmap, period = 365)
+```
+
+extraer datos de dos pixeles
+
+```{r}
+pts <- data.frame(lon = c(-111.1917, -109.5728),
+                  lat = c(26.38483, 22.30874))
+x <- extractPts(sst, points = pts)
+
+sst.st <- data.frame(fecha = sst@period$tmStart,
+                     norte = t(x[1, 7:(731+6)]),
+                     sur = t(x[2, 7:(731+6)]))
+names(sst.st)[2:3] <- c("norte", "sur")
+head(sst.st)
+
+```
+
+Graficar series de tiempo
+
+```{r}
+plot(sst.st$fecha, sst.st$norte, type = "n")
+lines(sst.st$fecha, sst.st$norte, col = "red")
+lines(sst.st$fecha, sst.st$sur, col = "blue")
+```
+
+promedios semanales
+
+```{r}
+sst.weekly <- satinMean(sst, by = "%Y-%W")
+```
+
+```{r}
+
+x <- extractPts(sst.weekly, points = pts)
+
+sstW.st <- data.frame(sst.weekly@period$tmStart,
+                      t(x[1, 7:(53+6)]),
+                      t(x[2, 7:(53+6)]))
+names(sstW.st) <- c("fecha", "norte", "sur")
+
+plot(sstW.st$fecha, sstW.st$norte, type = "n",
+     ylab = "Temperatura promedio semanal (°C)",
+     xlab = "fecha", las = 1)
+lines(sstW.st$fecha, sstW.st$norte, col = rgb(1, 0, 0, 0.5), type = "o", pch = 16)
+lines(sstW.st$fecha, sstW.st$sur, col = rgb(0, 0, 1, 0.5), type = "o", pch = 16)
+legend("topleft", col = c("red", "blue"), lty = 1, pch = 16, legend = c("norte", "sur"))
+```
