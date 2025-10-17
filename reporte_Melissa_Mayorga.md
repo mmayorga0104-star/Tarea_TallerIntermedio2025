@@ -3,18 +3,17 @@ melissa_mayorga
 
 ## Reporte de curso AECID
 
-### Ejercicio datos temporales
+### Ejercicio de datos temporales
 
-ESCRIBIR DESCRIPCIÓN
-
-SE EMPLEARON DATOS DE COPERNICUS. SE IMPORTARON CON EL PAQUETE **SATIN**
+Para este ejercicio se emplearon datos de temperatura de COPERNICUS. Los
+datos se importaron con el paquete **SATIN.**
 
 ``` r
 library(satin) #cargar paquete
 sst <- read.cmems("cmems_mod_glo_phy_my_0.083deg_P1D-m_1728505215428.nc")
 ```
 
-Una vez IMPORTADO SE INSPECCIONÓ
+Una vez importados los datos, se inspeccionaron:
 
 ``` r
 sst
@@ -40,7 +39,7 @@ sst
 Se trata de datos diarios de temperatura (temperatura potencial) a dos
 profundidades correspondientes a dos años (2019-2020).
 
-hacer un mapa del primer día.
+Posteriormente, se realizó un mapa del primer día.
 
 ``` r
 data(dmap)
@@ -49,7 +48,8 @@ plot(sst, map = dmap, period = 365)
 
 ![](reporte_Melissa_Mayorga_files/figure-commonmark/unnamed-chunk-3-1.png)
 
-extraer datos de dos pixeles
+Seguido, se procedió a extraer datos de temperatura de dos pixeles para
+la zona norte y sur en el Pacífico mexicano.
 
 ``` r
 pts <- data.frame(lon = c(-111.1917, -109.5728),
@@ -71,17 +71,20 @@ head(sst.st)
     p5 2019-01-05 19.77975 24.80358
     p6 2019-01-06 19.74459 24.66442
 
-Graficar series de tiempo
+A continuación se realizó una gráfica de temperatura diaria para la zona
+norte y sur en el Pacífico mexicano.
 
 ``` r
 plot(sst.st$fecha, sst.st$norte, type = "n")
 lines(sst.st$fecha, sst.st$norte, col = "red")
 lines(sst.st$fecha, sst.st$sur, col = "blue")
+legend("topleft", col = c("red", "blue"), lty = 1, pch = 16, legend = c("norte", "sur"))
 ```
 
 ![](reporte_Melissa_Mayorga_files/figure-commonmark/unnamed-chunk-5-1.png)
 
-promedios semanales
+Seguido, se obtuvieron los promedios semanales y se elaboró el siguiente
+gráfico de la temperatura promedio semanal para ambos años.
 
 ``` r
 sst.weekly <- satinMean(sst, by = "%Y-%W")
@@ -110,3 +113,9 @@ legend("topleft", col = c("red", "blue"), lty = 1, pch = 16, legend = c("norte",
 ```
 
 ![](reporte_Melissa_Mayorga_files/figure-commonmark/unnamed-chunk-7-1.png)
+
+En este ejercicio empleé herramientas del paquete **SATIN**, extraccion
+de puntos, se realizaron gráficos de temperatura. En el primer gráfico
+se presentan los datos diarios de temperatura y en el segundo gráfico se
+presentan la temperatura promedio mensual de dos regiones en el Pacífico
+mexicano.
